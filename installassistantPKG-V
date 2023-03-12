@@ -1,0 +1,175 @@
+#!/bin/sh
+# By chris1111
+# Script Base on sinojerk Installassistant
+# Vars
+apptitle="Installassistant Downloader"
+version="1.0"
+CURL_DIR="/Private/tmp"
+rm -rf $CURL_DIR/InstallAssistant.pkg
+# parse catalogs_url
+SEED_SUFFIX_BY_PROGRAM="CustomerSeed:customerseed
+DeveloperSeed:seed
+PublicSeed:beta"
+
+OS_SEEDCATALOGS_PLIST='/System/Library/PrivateFrameworks/Seeding.framework/Resources/SeedCatalogs.plist'
+
+
+system_catalog_url() {
+    awk -v prog="<key>$1</key>" '$0~prog{
+    getline
+    gsub(/.*<string>/, "")
+    gsub(/<\/string>.*/, "")
+    print
+    exit }' "$OS_SEEDCATALOGS_PLIST"
+}
+
+selected_catalog_url() {
+    if [ -f "$OS_SEEDCATALOGS_PLIST" ]; then
+        system_catalog_url $1
+    else
+    	suffix="$(echo "${SEED_SUFFIX_BY_PROGRAM}"|sed -nE "s|$1:(.*)|\1|p")"
+        echo "https://swscan.apple.com/content/catalogs/others/index-12${suffix}-12-10.16-10.15-10.14-10.13-10.12-10.11-10.10-10.9-mountainlion-lion-snowleopard-leopard.merged-1.sucatalog.gz"
+    fi
+}
+
+
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        -v|--verbose)
+            VERBOSE=$((VERBOSE+1))
+            shift
+            ;;
+    esac
+done
+
+opseed=${SEED:-"CustomerSeed"}
+
+if [ "$CATALOG" ]; then
+    catalog_url="$CATALOG"
+else
+    if echo ":CustomerSeed:DeveloperSeed:PublicSeed:" | grep -q "${opseed}"; then
+        catalog_url="$(selected_catalog_url "$opseed")"
+    else
+        exit 1
+    fi
+fi
+
+
+
+awk_catalog_parser='
+/<key>[0-9]{3}-[0-9]+<\/key>/{
+    fkey=1 
+    fdict=0
+    gsub(/.*<key>/,"")
+    gsub(/<\/key>.*/,"")
+    key=$0
+    next
+}
+fkey && /<dict>/ {
+    fdict++;
+    next
+}
+fkey && /<string>.*InstallAssistant.pkg<\/string>/{
+    fia=1
+    gsub(/.*<string>/,"")
+    gsub(/<\/string>.*/,"")
+    ia=$0
+    next
+}
+fia && /<string>.*English.dist<\/string>/ {
+    gsub(/.*<string>/,"")
+    gsub(/<\/string>.*/,"")
+    dist=$0
+    next
+}
+fia && /PostDate/ {
+    getline
+    gsub(/.*<date>/,"")
+    gsub(/[A-Z].*<\/date>.*/,"")
+    date=$0
+    next
+}
+fkey && /<\/dict>/ {
+    fdict--;
+    if (fdict==0) { 
+        if (fia) {
+            IAINDEX++
+            cmd="curl -Ls "dist
+            while ((cmd|getline dist_l) > 0) {
+                if (dist_l ~/<title>.*<\/title>/) { 
+                    gsub(/.*<[^<>\/]+>/, "", dist_l)
+                    gsub(/<\/[^<>\/]+>.*/, "", dist_l)
+                    title=dist_l
+                }
+                else if (dist_l ~/<key>BUILD<\/key>/) {
+                    (cmd|getline dist_l)
+                    gsub(/.*<[^<>\/]+>/, "", dist_l)
+                    gsub(/<\/[^<>\/]+>.*/, "", dist_l)
+                    build=dist_l
+                }
+                else if (dist_l ~/<key>VERSION<\/key>/) {
+                    (cmd|getline dist_l)
+                    gsub(/.*<[^<>\/]+>/, "", dist_l)
+                    gsub(/<\/[^<>\/]+>.*/, "", dist_l)
+                    version=dist_l
+                }
+            }
+            close(cmd)
+
+            printf "%2d  %-10s  %-8s  %-10s  %-10s  %s\n", IAINDEX, key, version, build, date, title
+            if (IAVERBOSE) printf "%s\n\n",ia
+        }
+        fkey=0
+        fia=0
+    }
+    next
+}'
+
+printf "%2s  %-10s  %-8s  %-10s  %-10s  %s\n" "#" "ProductID" "Version" "Build" "Post Date" "Title"
+curl -sL "${catalog_url%.gz}"|awk -v IAINDEX="0" -v IAVERBOSE="${VERBOSE}" "${awk_catalog_parser}"
+
+
+read -r -d '' applescriptCode <<'EOF'
+   set dialogText to text returned of (display dialog "
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+⬆︎ Url List:
+***************
+Copy paste the InstallAssistant Url in the Box ⬇︎
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" default answer "" with icon 2)
+   return dialogText
+EOF
+
+dialogText=$(osascript -e "$applescriptCode");
+Sleep 1
+# Activate App
+osascript <<EOD
+  tell application "Installassistant Downloader"
+      activate
+  end tell
+EOD
+
+Sleep 1
+# Download InstallAssistant.pkg
+echo "Download InstallAssistant.pkg"
+Sleep 2
+curl -L $dialogText -o $CURL_DIR/InstallAssistant.pkg
+Sleep 2
+Open $CURL_DIR/InstallAssistant.pkg
+
+Sleep 1
+# Exit App
+EXIT=/Private/tmp/InstallAssistant.pkg
+echo Save ➣ $EXIT
+echo "All is Done. Enjoy! "
+
+#Exit tool
+if [ ! -d $EXIT ]; then
+    osascript -e 'display notification "Program close" with title "'"$apptitle"'" subtitle "Download Completed" sound name "default"'
+    echo "Download Completed Exit App"
+    Sleep 2
+    echo "QUITAPP"
+ exit 0
+
+fi
