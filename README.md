@@ -4,6 +4,9 @@ Credit: Script Base on [sinojerk Installassistant](https://github.com/sinojerk/i
 
 ![Installassistant Downloader](https://user-images.githubusercontent.com/6248794/224547048-c71a0edd-5bf3-43cc-848f-704423489438.png)
 
+### Download Release ➤ [Installassistant Downloader](https://github.com/chris1111/Installassistant-Downloader/releases/tag/V1)
+
+
 The Software Update Service has shipped with macOS Server since 10.4.
 
 This allowed admins to locally download macOS software updates & selectively enable them for their managed macOS devices to install.
