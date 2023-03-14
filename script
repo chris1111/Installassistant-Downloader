@@ -4,14 +4,7 @@ rm -rf $catalogslog
 rm -rf $HOME/Desktop/Installassistant_Downloader_Log.txt
 # Creating log file
 touch $catalogslog
-echo "
----------------------------------------------
-Creating log file
----------------------------------------------"
-echo "======================================================"
-echo "Installassistant Downloader - $( date )"
-echo "====================================================="
-
 echo "Parse_catalogs_url! "
 Sleep 3
 ./installassistantPKG 2>&1 | tee $catalogslog
+
