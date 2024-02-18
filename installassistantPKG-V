@@ -154,7 +154,7 @@ Sleep 1
 # Download InstallAssistant.pkg
 echo "Download InstallAssistant.pkg"
 Sleep 2
-curl -L $dialogText -o $CURL_DIR/InstallAssistant.pkg
+curl --progress-bar -L $dialogText -o $CURL_DIR/InstallAssistant.pkg
 Sleep 2
 Open $CURL_DIR/InstallAssistant.pkg
 
@@ -168,8 +168,17 @@ echo "All is Done. Enjoy! "
 if [ ! -d $EXIT ]; then
     osascript -e 'display notification "Program close" with title "'"$apptitle"'" subtitle "Download Completed" sound name "default"'
     echo "Download Completed Exit App"
+    echo "======================================================"
+    echo "Installassistant Downloader Completed Done! - $( date )"
+    echo "====================================================="
+    mv /Private/tmp/Installassistant_Downloader_Log.txt $HOME/Desktop/Installassistant_Downloader_Log.txt
     Sleep 2
     echo "QUITAPP"
  exit 0
 
 fi
+
+
+
+
+
